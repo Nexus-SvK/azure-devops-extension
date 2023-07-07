@@ -1,0 +1,39 @@
+{
+    "manifestVersion": 1,
+    "id": "DxcDevOpsSprintCloser",
+    "publisher": "DXCTechnology",
+    "version": "1.0.2",
+    "name": "Sprint Closing Tool",
+    "description": "Tool for closing active sprint",
+    "categories": [
+        "Azure Boards"
+    ],
+    "targets": [
+        {
+            "id": "Microsoft.VisualStudio.Services"
+        }
+    ],
+    "icons": {
+        "default": "logo.png"
+    },
+    "content": {
+        "details": {
+            "path": "overview.md"
+        }
+    },
+    "files": [
+        {
+            "path": "static",
+            "addressable": true
+        },
+        {
+            "path": "dist",
+            "addressable": true
+        }
+    ],
+    "scopes": [
+        "vso.work_full",
+        "vso.taskgroups_manage",
+        "vso.project_manage"
+    ]
+}

@@ -1,12 +1,12 @@
 {
     "manifestVersion": 1,
-    "id": "samples",
-    "publisher": "ms-samples",
-    "version": "1.0.396",
-    "name": "Extension Sample",
-    "description": "Azure DevOps extension sample",
+    "id": "TestExtensionME",
+    "publisher": "TestExtensionME",
+    "version": "1.0.9",
+    "name": "Sprint Closing Tool",
+    "description": "Tool for closing active sprint",
     "categories": [
-        "Azure Pipelines"
+        "Azure Boards"
     ],
     "targets": [
         {
@@ -30,5 +30,10 @@
             "path": "dist",
             "addressable": true
         }
+    ],
+    "scopes": [
+        "vso.work_full",
+        "vso.taskgroups_manage",
+        "vso.project_manage"
     ]
 }

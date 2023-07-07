@@ -1,6 +1,7 @@
 {
     "compilerOptions": {
         "charset": "utf8",
+        "ignoreDeprecations": "5.0",
         "experimentalDecorators": true,
         "module": "amd",
         "moduleResolution": "node",
@@ -12,10 +13,10 @@
         "outDir": "dist/",
         "jsx": "react",
         "lib": [
-          "es5",
-          "es6",
-          "dom",
-          "es2015.promise"
+            "es5",
+            "es6",
+            "dom",
+            "es2015.promise"
         ],
         "types": [
             "react",
