@@ -40,8 +40,9 @@ export class SprintProcessor {
         return parentWorkItems;
     }
 
-    public async ProcessWorkItemsAsync(timeFrame: TeamSettingsIteration, callback: Function) {
+    public async ProcessWorkItemsAsync(timeFrame: TeamSettingsIteration) {
         const workItems = await this.SelectAllWorkItems(timeFrame);
+        const closeable = [];
         for (const wi of workItems) {
             if (wi.children.every((chWi) => chWi.fields["System.State"] === "New")) { await this.moveParentWorkItemToNextSprint(wi); }
             else if (wi.children.every((chWi) => chWi.fields["System.State"] === "Closed")) { await this.storyResolved(wi); }
@@ -51,21 +52,39 @@ export class SprintProcessor {
 
                 for (const childrenWI of wi.children) {
                     if (childrenWI.fields["System.State"] !== "Closed") {
-                        const copyPromise = this.CopyWIWithChildRelationsAsync(childrenWI, copiedParentWI.url, this._teamContext.projectId);
-                        copyPromises.push(copyPromise);
+                        if (childrenWI.fields["System.State"] === "New") {
+                            const patchDocument: JsonPatchDocument[] = [];
+                            patchDocument.push({
+                                op: Operation.Replace,
+                                path: "/fields/System.IterationPath",
+                                value: this._nextSprint.path
+                            });
+                            patchDocument.push({
+                                op: Operation.Remove,
+                                path: "/relations/0",
+                                value: null,
+                            });
+                            patchDocument.push({
+                                op: Operation.Add,
+                                path: "/relations/0",
+                                value: {
+                                    rel: "System.LinkTypes.Hierarchy-Reverse",
+                                    url: copiedParentWI.url
+                                }
+                            });
+                            await this._witClient.updateWorkItem(patchDocument, childrenWI.id);
+                            wi.children = wi.children.filter((x) => x !== childrenWI)
+                        } else {
+                            const copyPromise = this.CopyWIWithChildRelationsAsync(childrenWI, copiedParentWI.url, this._teamContext.projectId);
+                            copyPromises.push(copyPromise);
+                        }
                     }
                 }
+                closeable.push(...wi.children, wi.parent);
                 await Promise.all(copyPromises);
             }
-            await Promise.all([
-                // this.CloseWorkItems(workItems.map((x) => x.parent)),
-                // this.CloseWorkItems(upperRankWorkItems)
-            ]);
         }
-
-
-
-
+        await this.CloseWorkItems(closeable)
     }
 
     public async CopyWIWithChildRelationsAsync(oldWorkItem: WorkItem, parentWIUrl: string, projectId: string): Promise<WorkItem | undefined> {
@@ -84,13 +103,13 @@ export class SprintProcessor {
         patchDocument.push({
             op: Operation.Add,
             path: "/fields/System.Title",
-            value: oldWorkItem.fields["Microsoft.VSTS.Scheduling.CompletedWork"] ? this.ChangeWITitle(oldWorkItem.fields["System.Title"]) : oldWorkItem.fields["System.Title"]
+            value: this.ChangeWITitle(oldWorkItem.fields["System.Title"])
         })
 
         patchDocument.push({
             op: Operation.Add,
             path: "/fields/System.IterationPath",
-            value: this._nextSprint?.path
+            value: this._nextSprint.path
         });
 
         patchDocument.push({
@@ -125,7 +144,7 @@ export class SprintProcessor {
         patchDocument.push({
             op: Operation.Add,
             path: "/fields/System.IterationPath",
-            value: this._nextSprint?.path
+            value: this._nextSprint.path
         });
         patchDocument.push({
             op: Operation.Add,
@@ -201,14 +220,6 @@ export class SprintProcessor {
                     path: "/fields/System.State",
                     value: "Resolved"
                 });
-                await this._witClient.updateWorkItem(patchDocument, item.id);
-            } else if (item.fields["System.WorkItemType"] === "Task" && !item.fields["Microsoft.VSTS.Scheduling.CompletedWork"]) {
-                const patchDocument: JsonPatchDocument[] = [];
-                patchDocument.push({
-                    op: Operation.Replace,
-                    path: "/fields/System.IterationPath",
-                    value: this._nextSprint.path
-                })
                 await this._witClient.updateWorkItem(patchDocument, item.id);
             } else {
                 patchDocument.push({

@@ -2,7 +2,7 @@
     "manifestVersion": 1,
     "id": "DxcDevOpsSprintCloser",
     "publisher": "DXCTechnology",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "name": "Sprint Closing Tool",
     "description": "Tool for closing active sprint",
     "categories": [

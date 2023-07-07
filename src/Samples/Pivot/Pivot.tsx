@@ -78,7 +78,7 @@ class PivotContent extends React.Component<{}, {
         const { workHttpClient, witClient, teamContext } = this.state;
         if (!(workHttpClient && witClient && teamContext)) return;
         const queryExecutor = new SprintProcessor(workHttpClient, witClient, teamContext, destination);
-        await queryExecutor.ProcessWorkItemsAsync(timeFrame, console.log);
+        await queryExecutor.ProcessWorkItemsAsync(timeFrame);
         await SDK.notifyLoadSucceeded();
         this.setState({ isToastVisible: false });
         this.setState({ sprintClosed: true });
