@@ -47,35 +47,16 @@ export class SprintProcessor {
             if (wi.children.every((chWi) => chWi.fields["System.State"] === "New")) { await this.moveParentWorkItemToNextSprint(wi); }
             else if (wi.children.every((chWi) => chWi.fields["System.State"] === "Closed")) { await this.storyResolved(wi); }
             else {
-                const copiedParentWI = await this.CopyWIWithParentRelationsAsync(wi.parent, this._teamContext.projectId);
+                const copiedParentWI = await this.CopyWIWithParentRelationsAsync(wi.parent);
                 const copyPromises = [];
 
                 for (const childrenWI of wi.children) {
                     if (childrenWI.fields["System.State"] !== "Closed") {
                         if (childrenWI.fields["System.State"] === "New") {
-                            const patchDocument: JsonPatchDocument[] = [];
-                            patchDocument.push({
-                                op: Operation.Replace,
-                                path: "/fields/System.IterationPath",
-                                value: this._nextSprint.path
-                            });
-                            patchDocument.push({
-                                op: Operation.Remove,
-                                path: "/relations/0",
-                                value: null,
-                            });
-                            patchDocument.push({
-                                op: Operation.Add,
-                                path: "/relations/0",
-                                value: {
-                                    rel: "System.LinkTypes.Hierarchy-Reverse",
-                                    url: copiedParentWI.url
-                                }
-                            });
-                            await this._witClient.updateWorkItem(patchDocument, childrenWI.id);
+                            await this.newTaskToNextSprintStory(copiedParentWI.url, childrenWI.id)
                             wi.children = wi.children.filter((x) => x !== childrenWI)
                         } else {
-                            const copyPromise = this.CopyWIWithChildRelationsAsync(childrenWI, copiedParentWI.url, this._teamContext.projectId);
+                            const copyPromise = this.CopyWIWithChildRelationsAsync(childrenWI, copiedParentWI.url);
                             copyPromises.push(copyPromise);
                         }
                     }
@@ -87,7 +68,7 @@ export class SprintProcessor {
         await this.CloseWorkItems(closeable)
     }
 
-    public async CopyWIWithChildRelationsAsync(oldWorkItem: WorkItem, parentWIUrl: string, projectId: string): Promise<WorkItem | undefined> {
+    public async CopyWIWithChildRelationsAsync(oldWorkItem: WorkItem, parentWIUrl: string): Promise<WorkItem | undefined> {
         const patchDocument: JsonPatchDocument[] = [];
         const systemFields = this.systemFields;
         Object.keys(oldWorkItem.fields).forEach(function (key) {
@@ -120,11 +101,11 @@ export class SprintProcessor {
                 url: parentWIUrl
             }
         });
-        return await this._witClient.createWorkItem(patchDocument, projectId, oldWorkItem.fields["System.WorkItemType"]);
+        return await this._witClient.createWorkItem(patchDocument, this._teamContext.projectId, oldWorkItem.fields["System.WorkItemType"]);
     }
 
 
-    public async CopyWIWithParentRelationsAsync(oldWorkItem: WorkItem, projectId: string) {
+    public async CopyWIWithParentRelationsAsync(oldWorkItem: WorkItem) {
         let patchDocument: JsonPatchDocument[] = [];
         const systemFields = this.systemFields;
         Object.keys(oldWorkItem.fields).forEach(function (key) {
@@ -165,7 +146,7 @@ export class SprintProcessor {
                 });
             }
         }
-        return await this._witClient.createWorkItem(patchDocument, projectId, oldWorkItem.fields["System.WorkItemType"]);
+        return await this._witClient.createWorkItem(patchDocument, this._teamContext.projectId, oldWorkItem.fields["System.WorkItemType"]);
     }
 
     public ChangeWITitle(oldWITitle: string) {
@@ -184,23 +165,55 @@ export class SprintProcessor {
                 const newIter = newIteration ? newIteration[1] : '';
                 return oldWITitle.replace(oldIteration, '') + newIter;
             } else {
-                return oldWITitle + '(1)';
+                return oldWITitle.trimEnd() + ' (1)';
             }
         }
     }
 
     public async moveParentWorkItemToNextSprint(wI: ParentWorkItem) {
-        for (const workItem of wI.allWorkItems) {
-            const patchDocument: JsonPatchDocument[] = [];
-            patchDocument.push({
-                op: Operation.Replace,
-                path: "/fields/System.IterationPath",
-                value: this._nextSprint.path
-            })
-            await this._witClient.updateWorkItem(patchDocument, workItem.id);
+        const sprintUnique = wI.parent.fields["System.Title"].match(/^.*?(\d+\.\d+)$/);
+        if (sprintUnique) {
+            const newParent = await this.CopyWIWithParentRelationsAsync(wI.parent);
+            for (const child of wI.children) {
+                await this.newTaskToNextSprintStory(newParent.url, child.id);
+            }
+        } else {
+            for (const workItem of wI.allWorkItems) {
+                const patchDocument: JsonPatchDocument[] = [];
+                patchDocument.push({
+                    op: Operation.Replace,
+                    path: "/fields/System.IterationPath",
+                    value: this._nextSprint.path
+                })
+                await this._witClient.updateWorkItem(patchDocument, workItem.id);
 
+            }
         }
     }
+
+    public async newTaskToNextSprintStory(parentUrl: string, childID: number) {
+        const patchDocument: JsonPatchDocument[] = [];
+        patchDocument.push({
+            op: Operation.Replace,
+            path: "/fields/System.IterationPath",
+            value: this._nextSprint.path
+        });
+        patchDocument.push({
+            op: Operation.Remove,
+            path: "/relations/0",
+            value: null,
+        });
+        patchDocument.push({
+            op: Operation.Add,
+            path: "/relations/0",
+            value: {
+                rel: "System.LinkTypes.Hierarchy-Reverse",
+                url: parentUrl
+            }
+        });
+        await this._witClient.updateWorkItem(patchDocument, childID);
+    }
+
     public async storyResolved(wI: ParentWorkItem) {
         const patchDocument: JsonPatchDocument[] = [];
         patchDocument.push({

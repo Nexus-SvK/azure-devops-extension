@@ -2,7 +2,7 @@
     "manifestVersion": 1,
     "id": "TestExtensionME",
     "publisher": "TestExtensionME",
-    "version": "1.0.20",
+    "version": "1.0.22",
     "name": "Sprint Closing Tool",
     "description": "Tool for closing active sprint",
     "categories": [
