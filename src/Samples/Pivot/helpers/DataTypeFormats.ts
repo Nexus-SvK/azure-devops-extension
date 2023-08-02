@@ -17,14 +17,14 @@ export class TeamContext {
 }
 
 export class ParentWorkItem {
-    public parent: WorkItem
+    public parent?: WorkItem
     public children: WorkItem[];
     public allWorkItems: WorkItem[];
 
-    constructor(parent: WorkItem, children: WorkItem[]) {
+    constructor(children: WorkItem[], parent?: WorkItem) {
         this.parent = parent;
         this.children = children;
-        this.allWorkItems = [parent, ...children];
+        this.allWorkItems = parent ? [parent, ...children] : children;
     }
 
 }

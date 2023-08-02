@@ -26,7 +26,9 @@ class PivotContent extends React.Component<{}, {
     workHttpClient: undefined | WorkRestClient,
     current: undefined | TeamSettingsIteration,
     previous: undefined | TeamSettingsIteration,
-    future: undefined | TeamSettingsIteration
+    future: undefined | TeamSettingsIteration,
+    error: undefined | Error;
+    percentage: number;
 }> {
     private toastRef: React.RefObject<Toast> = React.createRef<Toast>();
     constructor(props: {}) {
@@ -41,7 +43,9 @@ class PivotContent extends React.Component<{}, {
             workHttpClient: undefined,
             current: undefined,
             previous: undefined,
-            future: undefined
+            future: undefined,
+            error: undefined,
+            percentage: 0,
         }
 
     }
@@ -75,19 +79,25 @@ class PivotContent extends React.Component<{}, {
     private async initializeComponent(timeFrame: TeamSettingsIteration, destination: TeamSettingsIteration) {
         await SDK.ready();
         this.setState({ isToastVisible: true });
-        const { workHttpClient, witClient, teamContext } = this.state;
+        const { workHttpClient, witClient, teamContext, error } = this.state;
         if (!(workHttpClient && witClient && teamContext)) return;
         const queryExecutor = new SprintProcessor(workHttpClient, witClient, teamContext, destination);
-        await queryExecutor.ProcessWorkItemsAsync(timeFrame);
-        await SDK.notifyLoadSucceeded();
+        try {
+            await queryExecutor.ProcessWorkItemsAsync(timeFrame, (percentage: number) => {
+                this.setState({ percentage })
+            });
+        } catch (e) {
+            this.setState({ error: e as Error });
+        }
+        // await SDK.notifyLoadSucceeded();
         this.setState({ isToastVisible: false });
-        this.setState({ sprintClosed: true });
+        this.setState({ sprintClosed: typeof error === 'undefined' });
         this.onButtonClick()
 
     }
 
     public render(): JSX.Element {
-        const { isToastVisible, sprintClosed, canceled, current, previous, future } = this.state;
+        const { isToastVisible, sprintClosed, canceled, current, previous, future, error, percentage } = this.state;
         return (
             <div className="sample-pivot" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'start', alignItems: 'center' }}>
                 {canceled ? (<>
@@ -135,15 +145,20 @@ class PivotContent extends React.Component<{}, {
 
                         {isToastVisible && (
                             <Toast
-                                message="Closing Sprint"
+                                message={`Closing Sprint ${percentage}%`}
                             />
                         )}
                         {
-                            sprintClosed && <Toast
+                            sprintClosed && !error && <Toast
                                 ref={this.toastRef}
-                                message="Sprint successfully closed"
+                                message={`Sprint successfully closed`}
                             />
 
+                        }
+                        {
+                            error && <Toast
+                                message={error.message}
+                            />
                         }
                     </>)
                 }

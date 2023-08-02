@@ -26,44 +26,68 @@ export class SprintProcessor {
     }
 
     public async SelectAllWorkItems(iter: TeamSettingsIteration) {
-        const items = (await this._workHttpClient.getIterationWorkItems(this._teamContext, iter.id)).workItemRelations;
-        const ids = items.map((item) => item.target.id)
-        const workItems = await this._witClient.getWorkItems(ids, undefined, undefined, undefined, WorkItemExpand.All);
-        const upperRankTypes = ["User Story", "Bug", "Ticket"];
-        const parentWIs = workItems.filter(wi => upperRankTypes.includes(wi.fields["System.WorkItemType"]) && wi.fields["System.State"] !== "Closed");
-        const lowerRankWorkItems = workItems.filter(wi => wi.fields["System.WorkItemType"] === "Task");
-        const parentWorkItems: ParentWorkItem[] = [];
-        for (const parentWI of parentWIs) {
-            const children: WorkItem[] = lowerRankWorkItems.filter(wI => wI.relations.some(rel => rel.url === parentWI.url));
-            parentWorkItems.push(new ParentWorkItem(parentWI, children));
+        try {
+            // Fetch work items related to the iteration
+            const iterationWorkItems = await this._workHttpClient.getIterationWorkItems(this._teamContext, iter.id);
+            const workItemRelations = iterationWorkItems.workItemRelations;
+            const workItemIds = workItemRelations.map((item) => item.target.id);
+
+            // Fetch details of the work items
+            const workItems = await this._witClient.getWorkItems(workItemIds, undefined, undefined, undefined, WorkItemExpand.All);
+
+            // Filter parent and lower rank work items
+            const upperRankTypes = ["User Story", "Bug", "Ticket"];
+            const parentWorkItems = workItems.filter(wi => upperRankTypes.includes(wi.fields["System.WorkItemType"]) && wi.fields["System.State"] !== "Closed");
+            const lowerRankWorkItems = workItems.filter(wi => wi.fields["System.WorkItemType"] === "Task");
+
+            // Group lower rank work items under their respective parent work items
+            const parentWorkItemsWithChildren = parentWorkItems.map(parentWI => {
+                const children = lowerRankWorkItems.filter(wi => wi.relations.some(rel => rel.url === parentWI.url));
+                return new ParentWorkItem(children, parentWI);
+            });
+
+            return parentWorkItemsWithChildren;
+        } catch (error) {
+            // Handle specific errors and provide more informative error messages
+            if (error instanceof Error) {
+                throw new Error(`"SelectAllWorkItems": Failed to fetch work items: ${error.message}`);
+            } else {
+                throw new Error(`"SelectAllWorkItems": Failed to fetch work items`);
+            }
         }
-        return parentWorkItems;
     }
 
-    public async ProcessWorkItemsAsync(timeFrame: TeamSettingsIteration) {
+
+    public async ProcessWorkItemsAsync(timeFrame: TeamSettingsIteration, callback: Function) {
         const workItems = await this.SelectAllWorkItems(timeFrame);
+        const allWorkItems = workItems.reduce((x, i) => x + i.allWorkItems.length, 0);
+        let completed = 0;
         const closeable = [];
         for (const wi of workItems) {
-            if (wi.children.every((chWi) => chWi.fields["System.State"] === "New")) { await this.moveParentWorkItemToNextSprint(wi); }
-            else if (wi.children.every((chWi) => chWi.fields["System.State"] === "Closed")) { await this.storyResolved(wi); }
+            if (wi.children.every((chWi) => chWi.fields["System.State"] === "New" && typeof wi.parent !== 'undefined')) { await this.moveParentWorkItemToNextSprint(wi) }
+            else if (wi.children.every((chWi) => chWi.fields["System.State"] === "Closed")) { await this.storyResolved(wi) }
             else {
-                const copiedParentWI = await this.CopyWIWithParentRelationsAsync(wi.parent);
-                const copyPromises = [];
+                if (wi.parent) {
+                    const copiedParentWI = await this.CopyWIWithParentRelationsAsync(wi.parent);
+                    const copyPromises = [];
 
-                for (const childrenWI of wi.children) {
-                    if (childrenWI.fields["System.State"] !== "Closed") {
-                        if (childrenWI.fields["System.State"] === "New") {
-                            await this.newTaskToNextSprintStory(copiedParentWI.url, childrenWI.id)
-                            wi.children = wi.children.filter((x) => x !== childrenWI)
-                        } else {
-                            const copyPromise = this.CopyWIWithChildRelationsAsync(childrenWI, copiedParentWI.url);
-                            copyPromises.push(copyPromise);
+                    for (const childrenWI of wi.children) {
+                        if (childrenWI.fields["System.State"] !== "Closed") {
+                            if (childrenWI.fields["System.State"] === "New") {
+                                await this.newTaskToNextSprintStory(copiedParentWI.url, childrenWI.id)
+                                wi.allWorkItems = wi.allWorkItems.filter((x) => x.id !== childrenWI.id);
+                            } else {
+                                const copyPromise = this.CopyWIWithChildRelationsAsync(childrenWI, copiedParentWI.url);
+                                copyPromises.push(copyPromise);
+                            }
                         }
                     }
+                    closeable.push(...wi.allWorkItems);
+                    await Promise.all(copyPromises);
                 }
-                closeable.push(...wi.children, wi.parent);
-                await Promise.all(copyPromises);
             }
+            completed += wi.allWorkItems.length;
+            callback(Math.trunc((completed / allWorkItems) * 100))
         }
         await this.CloseWorkItems(closeable)
     }
@@ -101,7 +125,15 @@ export class SprintProcessor {
                 url: parentWIUrl
             }
         });
-        return await this._witClient.createWorkItem(patchDocument, this._teamContext.projectId, oldWorkItem.fields["System.WorkItemType"]);
+        try {
+            return await this._witClient.createWorkItem(patchDocument, this._teamContext.projectId, oldWorkItem.fields["System.WorkItemType"]);
+        } catch (e) {
+            if (e instanceof Error) {
+                throw new Error(`CopyWIWithChildRelationsAsync: ${e.message}`);
+            } else {
+                throw new Error(`Error in CopyWIWithChildRelationsAsync - WorkItem ${oldWorkItem.id}`);
+            }
+        }
     }
 
 
@@ -145,8 +177,15 @@ export class SprintProcessor {
                     }
                 });
             }
+        } try {
+            return await this._witClient.createWorkItem(patchDocument, this._teamContext.projectId, oldWorkItem.fields["System.WorkItemType"]);
+        } catch (e) {
+            if (e instanceof Error) {
+                throw new Error(`CopyWIWithParentRelationsAsync: ${e.message}`);
+            } else {
+                throw new Error(`Error in CopyWIWithParentRelationsAsync - WorkItem ${oldWorkItem.id}`);
+            }
         }
-        return await this._witClient.createWorkItem(patchDocument, this._teamContext.projectId, oldWorkItem.fields["System.WorkItemType"]);
     }
 
     public ChangeWITitle(oldWITitle: string) {
@@ -171,7 +210,10 @@ export class SprintProcessor {
     }
 
     public async moveParentWorkItemToNextSprint(wI: ParentWorkItem) {
-        const sprintUnique = wI.parent.fields["System.Title"].match(/^.*?(\d+\.\d+)$/);
+        if (!wI.parent) {
+            throw new Error("moveParentWorkItemToNextSprint: No Parent Work Item");
+        }
+        const sprintUnique = wI.parent?.fields["System.Title"].match(/^.*?(\d+\.\d+)$/);
         if (sprintUnique) {
             const newParent = await this.CopyWIWithParentRelationsAsync(wI.parent);
             for (const child of wI.children) {
@@ -185,7 +227,15 @@ export class SprintProcessor {
                     path: "/fields/System.IterationPath",
                     value: this._nextSprint.path
                 })
-                await this._witClient.updateWorkItem(patchDocument, workItem.id);
+                try {
+                    await this._witClient.updateWorkItem(patchDocument, workItem.id);
+                } catch (e) {
+                    if (e instanceof Error) {
+                        throw new Error(`moveParentWorkItemToNextSprint: ${e.message}`);
+                    } else {
+                        throw new Error('Error in moveParentWorkItemToNextSprint');
+                    }
+                }
 
             }
         }
@@ -211,17 +261,34 @@ export class SprintProcessor {
                 url: parentUrl
             }
         });
-        await this._witClient.updateWorkItem(patchDocument, childID);
+        try {
+            await this._witClient.updateWorkItem(patchDocument, childID);
+        } catch (e) {
+            if (e instanceof Error) {
+                throw new Error(`newTaskToNextSprintStory: ${e.message}`);
+            } else {
+                throw new Error(`Error in newTaskToNextSprintStory`);
+            }
+        }
     }
 
     public async storyResolved(wI: ParentWorkItem) {
-        const patchDocument: JsonPatchDocument[] = [];
-        patchDocument.push({
-            op: Operation.Replace,
-            path: "/fields/System.State",
-            value: "Resolved"
-        });
-        await this._witClient.updateWorkItem(patchDocument, wI.parent.id);
+        try {
+            const patchDocument: JsonPatchDocument[] = [];
+            patchDocument.push({
+                op: Operation.Replace,
+                path: "/fields/System.State",
+                value: "Resolved"
+            });
+            if (!wI.parent) throw new Error('Parent WorkItem undefined');
+            await this._witClient.updateWorkItem(patchDocument, wI.parent?.id);
+        } catch (e) {
+            if (e instanceof Error) {
+                throw new Error(`storyResolved: ${e.message}`)
+            } else {
+                throw new Error('Error in storyResolved');
+            }
+        }
     }
 
     public async CloseWorkItems(items: WorkItem[]): Promise<void> {
@@ -233,7 +300,15 @@ export class SprintProcessor {
                     path: "/fields/System.State",
                     value: "Resolved"
                 });
-                await this._witClient.updateWorkItem(patchDocument, item.id);
+                try {
+                    await this._witClient.updateWorkItem(patchDocument, item.id);
+                } catch (e) {
+                    if (e instanceof Error) {
+                        throw new Error(`CloseWorkItems: ${e.message}`)
+                    } else {
+                        throw new Error(`Error in CloseWorkItems`)
+                    }
+                }
             } else {
                 patchDocument.push({
                     op: Operation.Replace,
@@ -241,7 +316,15 @@ export class SprintProcessor {
                     value: "Closed"
                 });
 
-                await this._witClient.updateWorkItem(patchDocument, item.id);
+                try {
+                    await this._witClient.updateWorkItem(patchDocument, item.id);
+                } catch (e) {
+                    if (e instanceof Error) {
+                        throw new Error(`CloseWorkItems: ${e.message}`)
+                    } else {
+                        throw new Error(`Error in CloseWorkItems`)
+                    }
+                }
             }
         }
     }
