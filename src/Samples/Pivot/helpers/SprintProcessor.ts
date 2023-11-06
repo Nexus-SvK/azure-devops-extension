@@ -138,6 +138,24 @@ export class SprintProcessor {
 
 
     public async CopyWIWithParentRelationsAsync(oldWorkItem: WorkItem) {
+        let updateOldDocument: JsonPatchDocument[] = [];
+
+        updateOldDocument.push({
+            op: Operation.Replace,
+            path: "/fields/System.Title",
+            value: `${oldWorkItem.fields["System.Title"]} ->`
+        });
+
+        try {
+            await this._witClient.updateWorkItem(updateOldDocument, oldWorkItem.id);
+        } catch (e) {
+            if (e instanceof Error) {
+                throw new Error(`CopyWIWithParentRelationsAsync - Failed to update: ${e.message}`);
+            } else {
+                throw new Error(`Error in CopyWIWithParentRelationsAsync - Failed to update WorkItem ${oldWorkItem.id}`);
+            }
+        }
+
         let patchDocument: JsonPatchDocument[] = [];
         const systemFields = this.systemFields;
         Object.keys(oldWorkItem.fields).forEach(function (key) {
