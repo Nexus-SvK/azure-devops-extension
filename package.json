@@ -1,91 +1,83 @@
 {
-    "name": "azure-devops-extension",
-    "version": "1.0.4",
-    "description": "Sprint Closer",
-    "keywords": [
-        "extensions",
-        "Azure DevOps",
-        "Visual Studio Team Services"
-    ],
-    "license": "MIT",
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/Microsoft/azure-devops-extension-sample.git"
-    },
-    "scripts": {
-        "clean": "rimraf ./dist",
-        "compile": "npm run clean && webpack --mode production",
-        "build": "npm run compile",
-        "postbuild": "npm run package-extension -- --rev-version",
-        "package-extension": "tfx extension create --manifest-globs azure-devops-extension-prod.json src/Samples/**/*.json",
-        "publish-extension": "tfx extension publish --manifest-globs azure-devops-extension-prod.json src/Samples/**/*.json",
-        "compile:dev": "npm run clean && webpack --mode development",
-        "build:dev": "npm run compile:dev",
-        "postbuild:dev": "npm run package-extension:dev -- --rev-version",
-        "package-extension:dev": "tfx extension create --manifest-globs azure-devops-extension-dev.json src/Samples/**/*.json",
-        "publish-extension:dev": "tfx extension publish --manifest-globs azure-devops-extension-dev.json src/Samples/**/*.json"
-    },
-    "dependencies": {
-        "azure-devops-extension-api": "^2.221.0",
-        "azure-devops-extension-sdk": "^3.1.2",
-        "azure-devops-ui": "^2.167.75",
-        "react": "~16.3.1",
-        "react-dom": "~16.3.1",
-        "uuid": "9.0.0"
-    },
-    "devDependencies": {
-        "@babel/core": "^7.22.5",
-        "@testing-library/jest-dom": "^5.16.5",
-        "@testing-library/react": "^14.0.0",
-        "@types/jest": "^29.5.2",
-        "@types/react": "~16.8.2",
-        "@types/react-dom": "~16.8.0",
-        "@types/uuid": "^9.0.2",
-        "base64-inline-loader": "^2.0.1",
-        "copy-webpack-plugin": "^11.0.0",
-        "cross-env": "^7.0.3",
-        "css-loader": "^6.8.1",
-        "jest": "^29.5.0",
-        "jest-junit-reporter": "^1.1.0",
-        "rimraf": "~5.0.1",
-        "sass": "^1.63.6",
-        "sass-loader": "^13.3.2",
-        "style-loader": "^3.3.3",
-        "tfx-cli": "^0.15.0",
-        "ts-jest": "^29.1.0",
-        "ts-loader": "~9.4.3",
-        "typescript": "^5.1.5",
-        "webpack": "^5.88.0",
-        "webpack-cli": "^5.1.4"
-    },
-    "jest": {
-        "transform": {
-            "^.+\\.(js|ts|tsx|jsx)$": "ts-jest"
-        },
-        "transformIgnorePatterns": [
-            "node_modules/(?!(react-native|azure-devops-ui|azure-devops-extension-sdk)/)"
-        ],
-        "moduleNameMapper": {
-            "\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)$": "<rootDir>/src/__mocks__/fileMock.js",
-            "\\.(css|less|scss)$": "<rootDir>/src/__mocks__/styleMock.js"
-        },
-        "preset": "ts-jest/presets/js-with-babel",
-        "testResultsProcessor": "./node_modules/jest-junit-reporter",
-        "collectCoverage": true,
-        "coverageReporters": [
-            "json",
-            "html",
-            "cobertura"
-        ],
-        "globals": {
-            "ts-jest": {
-                "tsconfig": "tsconfig.test.json"
-            }
-        }
-    },
-    "overrides": {
-        "tfx-cli": {
-            "xml2js": "0.5.0"
-        }
-    }
+	"name": "azure-devops-extension",
+	"version": "1.0.4",
+	"description": "Sprint Closer",
+	"keywords": ["extensions", "Azure DevOps", "Visual Studio Team Services"],
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Microsoft/azure-devops-extension-sample.git"
+	},
+	"scripts": {
+		"clean": "rimraf ./dist",
+		"compile": "npm run clean && webpack --mode production",
+		"build": "npm run compile",
+		"postbuild": "npm run package-extension -- --rev-version",
+		"package-extension": "tfx extension create --manifest-globs azure-devops-extension-prod.json src/Samples/**/*.json",
+		"publish-extension": "tfx extension publish --manifest-globs azure-devops-extension-prod.json src/Samples/**/*.json",
+		"compile:dev": "npm run clean && webpack --mode production",
+		"build:dev": "npm run compile:dev",
+		"postbuild:dev": "npm run package-extension:dev -- --rev-version",
+		"package-extension:dev": "tfx extension create --manifest-globs azure-devops-extension-dev.json src/Samples/**/*.json",
+		"publish-extension:dev": "tfx extension publish --manifest-globs azure-devops-extension-dev.json src/Samples/**/*.json"
+	},
+	"dependencies": {
+		"azure-devops-extension-api": "^4.241.0",
+		"azure-devops-extension-sdk": "^4.0.2",
+		"azure-devops-ui": "^2.241.1",
+		"react": "^18.3.1",
+		"react-dom": "^18.3.1",
+		"uuid": "^10.0.0"
+	},
+	"devDependencies": {
+		"@babel/core": "^7.25.2",
+		"@testing-library/jest-dom": "^6.4.8",
+		"@testing-library/react": "^16.0.0",
+		"@types/jest": "^29.5.12",
+		"@types/react": "^18.3.3",
+		"@types/react-dom": "^18.3.0",
+		"@types/uuid": "^10.0.0",
+		"base64-inline-loader": "^2.0.1",
+		"copy-webpack-plugin": "^12.0.2",
+		"cross-env": "^7.0.3",
+		"css-loader": "^7.1.2",
+		"jest": "^29.7.0",
+		"jest-junit-reporter": "^1.1.0",
+		"rimraf": "^6.0.1",
+		"sass": "^1.77.8",
+		"sass-loader": "^16.0.0",
+		"style-loader": "^4.0.0",
+		"tfx-cli": "^0.17.0",
+		"ts-jest": "^29.2.3",
+		"ts-loader": "^9.5.1",
+		"typescript": "^5.5.4",
+		"webpack": "^5.93.0",
+		"webpack-cli": "^5.1.4"
+	},
+	"jest": {
+		"transform": {
+			"^.+\\.(js|ts|tsx|jsx)$": "ts-jest"
+		},
+		"transformIgnorePatterns": [
+			"node_modules/(?!(react-native|azure-devops-ui|azure-devops-extension-sdk)/)"
+		],
+		"moduleNameMapper": {
+			"\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)$": "<rootDir>/src/__mocks__/fileMock.js",
+			"\\.(css|less|scss)$": "<rootDir>/src/__mocks__/styleMock.js"
+		},
+		"preset": "ts-jest/presets/js-with-babel",
+		"testResultsProcessor": "./node_modules/jest-junit-reporter",
+		"collectCoverage": true,
+		"coverageReporters": ["json", "html", "cobertura"],
+		"globals": {
+			"ts-jest": {
+				"tsconfig": "tsconfig.test.json"
+			}
+		}
+	},
+	"overrides": {
+		"tfx-cli": {
+			"xml2js": "0.5.0"
+		}
+	}
 }
